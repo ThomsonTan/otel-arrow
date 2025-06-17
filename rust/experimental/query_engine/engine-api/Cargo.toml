@@ -1,0 +1,18 @@
+[package]
+name = "engine_api"
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+publish.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+data_engine_columnar = {path = "../engine-columnar"}
+data_engine_recordset = {path = "../engine-recordset"}
+data_engine_expressions = {path = "../expressions"}
+
+
+[lib]
+crate-type = ["staticlib"]
