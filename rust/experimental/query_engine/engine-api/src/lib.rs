@@ -1,6 +1,8 @@
 use data_engine_recordset::{
     data_expressions::*, logical_expressions::*, primitives::*, value_expressions::*, *,
 };
+use opentelemetry_proto::tonic::logs::v1::ScopeLogs;
+use prost::Message;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn init_query_engine() -> i32 {

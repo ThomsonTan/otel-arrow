@@ -12,6 +12,8 @@ rust-version.workspace = true
 data_engine_columnar = {path = "../engine-columnar"}
 data_engine_recordset = {path = "../engine-recordset"}
 data_engine_expressions = {path = "../expressions"}
+opentelemetry-proto = "0.30.0"
+prost = "0.14.1"
 
 
 [lib]
