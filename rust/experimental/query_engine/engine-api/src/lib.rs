@@ -15,3 +15,8 @@ pub extern "C" fn init_query_engine() -> i32 {
 
     0
 }
+
+#[unsafe(no_mangle)]
+pub extern "C" fn process() -> i32 {
+    0
+}
