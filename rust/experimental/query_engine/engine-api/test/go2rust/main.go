@@ -57,22 +57,11 @@ func main() {
 			},
 		},
 	}
-	logs := plog.NewLogs()
-	t := reflect.TypeOf(logs)
-	println("Type of NewLogs():", t.String())
-	resourceLogs := logs.ResourceLogs()
-	resourceLogs.AppendEmpty()
-	resourceLog := resourceLogs.At(0)
-	t1 := reflect.TypeOf(resourceLog)
-	println("Type of resourceLog:", t1.String())
 	println("Request type:", reflect.TypeOf(scope_logs).String())
 	data, _ := proto.Marshal(scope_logs) // Marshal the request to protobuf format
 	println("Data length:", len(data))
 	println("Data type", reflect.TypeOf(data).String())
-	// protoMsg := resourceLog.ProtoMessage()
-	// data, _ := proto.Marshal(protoMsg)	// result := C.init_query_engine()
-	// println("Result of init_query_engine:", result)
-	// println("Logs count:", logs.ResourceLogs().Len())
-	// // println("ResourceLogs count:", req)
-	// println("Data length:", len(data))
+
+	C.init_query_engine(C.CString("table name | key1, key2, key3 | filter key1 = 'value1' and key2 = 'value2'"))
+	C.process((*C.char)(C.CBytes(data)), C.size_t(len(data)))
 }
