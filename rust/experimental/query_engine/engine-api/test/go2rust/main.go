@@ -24,18 +24,18 @@ func init_scope_logs() *logs_v1.ScopeLogs {
 				},
 				Attributes: []*common_v1.KeyValue{
 					{	
-						Key: "key1",
+						Key: "event_id",
 						Value: &common_v1.AnyValue{
-							Value: &common_v1.AnyValue_StringValue{
-								StringValue: "value1",
+							Value: &common_v1.AnyValue_IntValue{
+								IntValue: 1,
 							},
 						},
 					},
 					{
-						Key: "key2",
+						Key: "key1",
 						Value: &common_v1.AnyValue{
 							Value: &common_v1.AnyValue_StringValue{
-								StringValue: "value2",
+								StringValue: "value1",
 							},
 						},
 					},
@@ -52,10 +52,10 @@ func init_scope_logs() *logs_v1.ScopeLogs {
 				},
 				Attributes: []*common_v1.KeyValue{
 					{	
-						Key: "key1",
+						Key: "event_id",
 						Value: &common_v1.AnyValue{
-							Value: &common_v1.AnyValue_StringValue{
-								StringValue: "value1",
+							Value: &common_v1.AnyValue_IntValue{
+								IntValue: 2,
 							},
 						},
 					},
@@ -75,7 +75,7 @@ func init_scope_logs() *logs_v1.ScopeLogs {
 }
 
 func main() {
-	C.init_query_engine(C.CString("Log | body | filter SeverityNumber == 1")) // Initialize the query engine with a query
+	C.init_query_engine(C.CString("Log | filter event_id == 1")) // Initialize the query engine with a query
 
 	scope_logs := init_scope_logs() // Initialize the ScopeLogs structure
 	data, _ := proto.Marshal(scope_logs) // Marshal the request to protobuf format

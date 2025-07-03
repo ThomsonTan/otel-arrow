@@ -2,38 +2,15 @@ use data_engine_recordset::{
     data::*, data_expressions::*, logical_expressions::*, primitives::*, value_expressions::*, *,
 };
 use opentelemetry_proto::tonic::collector::logs::v1::ExportLogsServiceRequest;
-use prost::Message;
 use opentelemetry_proto::tonic::logs::v1::{ScopeLogs, LogRecord};
+use opentelemetry_proto::tonic::common::v1::{any_value};
+use prost::Message;
+
 
 use std::sync::Mutex;
 use once_cell::sync::Lazy;
 
-#[derive(Debug, Clone)]
-struct EngineLogRecordBatch(pub ScopeLogs);
-
-impl DataRecordBatch<LogRecord> for EngineLogRecordBatch {
-    fn drain<S: DataEngineState, F>(&mut self, state: &mut S, action: F) -> Result<(), Error>
-    where
-        F: Fn(&mut S, LogRecord) -> Result<(), Error>,
-    {
-        // Drain log_records by value, passing each to the closure
-        // let log_records = std::mem::take(&mut self.log_records); // Faster than Vec::drain for all
-        // for record in log_records {
-        //     action(state, record)?; // Early exit on error
-        // }
-        Ok(())
-    }
-}
-
-pub fn create_data_engine() -> Result<DataEngine, Error> {
-    let mut data_engine = DataEngine::new();
-
-    // data_engine.register::<TestResource>()?;
-    // data_engine.register::<TestInstrumentationScope>()?;
-    // data_engine.register::<TestLogRecord>()?;
-
-    Ok(data_engine)
-}
+pub mod common;
 
 // initialize the global state to an empty instance
 static GLOBAL_STATE: Lazy<Mutex<String>> = Lazy::new(|| {
@@ -49,32 +26,66 @@ pub extern "C" fn init_query_engine() -> i32 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn process(buf: *const u8, len: usize) -> i32 {
-    if buf.is_null() || len == 0 {
-        return -1;
+pub extern "C" fn process(buf: *mut u8, len: usize) -> i32 {
+    match process_internal(buf, len) {
+        Some(result) => result,
+        None => -1,
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn process_internal(buf: *mut u8, len: usize) -> Option<i32> {
+    if buf.is_null() || len == 0 {
+        return None;
+    }
+
     let bytes = unsafe { std::slice::from_raw_parts(buf, len) };
+    let mut batch = common::TestLogRecordBatch::new();
     match ScopeLogs::decode(bytes) {
         Ok(scopeLogs) => {
-            scopeLogs.log_records.iter().for_each(|log_record| {
-                println!("Log Record: {:?}", log_record);
+            scopeLogs.log_records.iter().for_each(|scope_log_record| {
+                println!("Log Record: {:?}", scope_log_record);
+
+                let mut log_record1 = common::TestLogRecord::new();
+                log_record1.set_attribute("event_id", AnyValue::new_long_value(1));
+
+                if let Some(s) = scope_log_record.body.as_ref().and_then(|av| {
+                    match &av.value {
+                        Some(any_value::Value::StringValue(string_value)) => Some(string_value.clone()),
+                        _ => None
+                    }
+                }) {
+                    log_record1.set_body(AnyValue::new_string_value(s.as_ref()));
+                }
+
+                // iterate over scope_log_record.attributes
+                scope_log_record.attributes.iter().for_each(|kv| {
+                    if let Some(any_value) = &kv.value {
+                        if let Some(any_value::Value::StringValue(string_value)) = &any_value.value {
+                            log_record1.set_attribute(kv.key.as_ref(), AnyValue::new_string_value(string_value.as_str()));
+                        } else if let Some(any_value::Value::IntValue(int_value)) = &any_value.value {
+                            log_record1.set_attribute(kv.key.as_ref(), AnyValue::new_long_value(*int_value));
+                        }
+                    }
+                });
+
+                batch.add_log_record(log_record1);
             });
-
-            let mut pipeline = PipelineExpression::new();
-
-            // pipeline.add_data_expression(DiscardDataExpression::new_with_predicate(
-            //     EqualToLogicalExpression::new(
-            //         ResolveValueExpression::new("event_id"),
-            //         StaticValueExpression::new(AnyValue::new_long_value(1)),
-            //     ),
-            // ));
-
-            let data_engine = create_data_engine();
-            // let results = data_engine.process_complete_batch(&pipeline, &mut scopeLogs.log_records);
-            0
         }
-        Err(_err) => {
-            -1
-        }
+        Err(_err) => { }
     }
+
+    let mut pipeline = PipelineExpression::new();
+    pipeline.add_data_expression(DiscardDataExpression::new_with_predicate(
+        EqualToLogicalExpression::new(
+            ResolveValueExpression::new("event_id").ok()?,
+            StaticValueExpression::new(AnyValue::new_long_value(2)),
+        ),
+    ));
+    let data_engine = common::create_data_engine().ok()?;
+    let results = data_engine.process_complete_batch(&pipeline, &mut batch).ok()?;
+
+    println!("Included record count: {:?}", results.get_included_record_count());
+    println!("Dropped record count: {:?}", results.get_dropped_record_count());
+    None
 }
