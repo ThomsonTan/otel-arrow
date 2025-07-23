@@ -7,6 +7,7 @@ members = [
     "engine-columnar",
     "engine-recordset",
     "engine-api",
+    "engine-recordset2",
 ]
 resolver = "2"
 
