@@ -1,5 +1,5 @@
 [package]
-name = "engine_api"
+name = "engine_bridge"
 version.workspace = true
 authors.workspace = true
 repository.workspace = true

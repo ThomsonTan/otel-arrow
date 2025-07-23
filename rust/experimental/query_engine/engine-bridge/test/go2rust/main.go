@@ -1,8 +1,8 @@
 package main
 
 /*
-#cgo LDFLAGS: -L. -lengine_api -lm
-#include "engine_api.h"
+#cgo LDFLAGS: -L. -lengine_bridge -lm
+#include "engine_bridge.h"
 */
 import "C"
 
