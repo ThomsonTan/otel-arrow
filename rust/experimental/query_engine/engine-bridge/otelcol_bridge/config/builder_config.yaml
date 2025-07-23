@@ -1,0 +1,13 @@
+dist:
+  module: otelcol_bridge
+  name: otelcol_bridge
+  descdription: otelcol bridge to Rust
+  output_path: ./build/
+replaces:
+  - github.com/opent-telemetry/otel-arrow/rust/experiment/query_engine/engine_bridge/otelcol_bridge => ../
+receivers:
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.130.1
+processors:
+  - gomod: github.com/opent-telemetry/otel-arrow/rust/experiment/query_engine/engine_bridge/otelcol_bridge v0.1.0
+exporters:
+  - gomod: go.opentelemetry.io/collector/exporter/debugexporter v0.130.1
