@@ -7,7 +7,6 @@ import "C"
 
 import (
 	"context"
-	"fmt"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/processor"
@@ -46,12 +45,15 @@ func createLogsProcessor(
 }
 
 func logProcessorHandler(ctx context.Context, ld plog.Logs) (plog.Logs, error) {
-
 	req := plogotlp.NewExportRequestFromLogs(ld)
-	fmt.Printf("Processing logs hello xyz2...%T\n", req)
 	buf, _ := req.MarshalProto()
-	fmt.Printf("Processing logs hello xyz3... %d in %T\n", len(buf), buf)
-	fmt.Println("MarshalProto", buf)
 	C.process((*C.char)(C.CBytes(buf)), C.size_t(len(buf)))
-	return ld, nil
+
+	err := req.UnmarshalProto(buf)
+	if err != nil {
+		return ld, err
+	}
+
+	new_ld := req.Logs()
+	return new_ld, nil
 }
