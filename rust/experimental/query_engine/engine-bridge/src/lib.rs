@@ -2,7 +2,7 @@ use data_engine_recordset::{
     data::*, data_expressions::*, logical_expressions::*, primitives::*, value_expressions::*, *,
 };
 use opentelemetry_proto::tonic::collector::logs::v1::ExportLogsServiceRequest;
-use opentelemetry_proto::tonic::logs::v1::{ScopeLogs, LogRecord};
+use opentelemetry_proto::tonic::logs::v1::{ResourceLogs, ScopeLogs, LogRecord};
 use opentelemetry_proto::tonic::common::v1::{any_value};
 use prost::Message;
 
@@ -33,43 +33,48 @@ pub extern "C" fn process(buf: *mut u8, len: usize) -> i32 {
     }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn process_internal(buf: *mut u8, len: usize) -> Option<i32> {
+fn process_internal(buf: *mut u8, len: usize) -> Option<i32> {
     if buf.is_null() || len == 0 {
         return None;
     }
 
     let bytes = unsafe { std::slice::from_raw_parts(buf, len) };
     let mut batch = common::TestLogRecordBatch::new();
-    match ScopeLogs::decode(bytes) {
-        Ok(scopeLogs) => {
-            scopeLogs.log_records.iter().for_each(|scope_log_record| {
-                println!("Log Record: {:?}", scope_log_record);
+    match ExportLogsServiceRequest::decode(bytes) {
+        Ok(export_log_service_request) => {
+            export_log_service_request.resource_logs.iter().for_each(|resource_log| {
+                println!("Resource Logs: {:?}", resource_log);
 
-                let mut log_record1 = common::TestLogRecord::new();
-                log_record1.set_attribute("event_id", AnyValue::new_long_value(1));
+                resource_log.scope_logs.iter().for_each(|scope_log| {
+                    // Iterate over scope_log.log_records
+                    scope_log.log_records.iter().for_each(|log_record| {
+                        println!("Log Record: {:?}", log_record);
 
-                if let Some(s) = scope_log_record.body.as_ref().and_then(|av| {
-                    match &av.value {
-                        Some(any_value::Value::StringValue(string_value)) => Some(string_value.clone()),
-                        _ => None
-                    }
-                }) {
-                    log_record1.set_body(AnyValue::new_string_value(s.as_ref()));
-                }
+                        let mut log_record1 = common::TestLogRecord::new();
+                        log_record1.set_attribute("event_id", AnyValue::new_long_value(1));
 
-                // iterate over scope_log_record.attributes
-                scope_log_record.attributes.iter().for_each(|kv| {
-                    if let Some(any_value) = &kv.value {
-                        if let Some(any_value::Value::StringValue(string_value)) = &any_value.value {
-                            log_record1.set_attribute(kv.key.as_ref(), AnyValue::new_string_value(string_value.as_str()));
-                        } else if let Some(any_value::Value::IntValue(int_value)) = &any_value.value {
-                            log_record1.set_attribute(kv.key.as_ref(), AnyValue::new_long_value(*int_value));
+                        if let Some(s) = log_record.body.as_ref().and_then(|av| {
+                            match &av.value {
+                                Some(any_value::Value::StringValue(string_value)) => Some(string_value.clone()),
+                                _ => None
+                            }
+                        }) {
+                            log_record1.set_body(AnyValue::new_string_value(s.as_ref()));
                         }
-                    }
-                });
 
-                batch.add_log_record(log_record1);
+                        // Iterate over log_record.attributes
+                        log_record.attributes.iter().for_each(|kv| {
+                            if let Some(any_value) = &kv.value {
+                                if let Some(any_value::Value::StringValue(string_value)) = &any_value.value {
+                                    log_record1.set_attribute(kv.key.as_ref(), AnyValue::new_string_value(string_value.as_str()));
+                                } else if let Some(any_value::Value::IntValue(int_value)) = &any_value.value {
+                                    log_record1.set_attribute(kv.key.as_ref(), AnyValue::new_long_value(*int_value));
+                                }
+                            }
+                        });
+                        batch.add_log_record(log_record1);
+                    });
+                });
             });
         }
         Err(_err) => { }

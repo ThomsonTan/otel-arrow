@@ -1,4 +1,9 @@
 package otelcol_bridge
+/*
+#cgo LDFLAGS: -L. -lengine_bridge -lm
+#include "capi/engine_bridge.h"
+*/
+import "C"
 
 import (
 	"context"
@@ -39,10 +44,13 @@ func createLogsProcessor(
 }
 
 func createLogsHandler(ctx context.Context, ld plog.Logs) (plog.Logs, error) {
+	C.init_query_engine(C.CString("Log | filter event_id == 1")) // Initialize the query engine with a query
+
 	req := plogotlp.NewExportRequestFromLogs(ld)
 	fmt.Printf("Processing logs hello xyz2...%T\n", req)
 	buf, _ := req.MarshalProto()
 	fmt.Printf("Processing logs hello xyz3... %d in %T\n", len(buf), buf)
 	fmt.Println("MarshalProto", buf)
+	C.process((*C.char)(C.CBytes(buf)), C.size_t(len(buf)))
 	return ld, nil
 }
