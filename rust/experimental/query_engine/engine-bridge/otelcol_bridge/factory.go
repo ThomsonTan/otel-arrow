@@ -12,7 +12,6 @@ import (
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/processor/processorhelper"
-
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/plog/plogotlp"
 )
@@ -25,7 +24,10 @@ func NewFactory() processor.Factory {
 }
 
 func createDefaultConfig() component.Config {
-	return nil
+	C.init_query_engine(C.CString("Log | filter event_id == 1")) // Initialize the query engine with a query
+	return &Config{
+		// Initialize any default configuration fields here.
+	}
 }
 
 func createLogsProcessor(
@@ -39,12 +41,11 @@ func createLogsProcessor(
 		set,
 		cfg,
 		nextConsumer,
-		createLogsHandler,
+		logProcessorHandler,
 		processorhelper.WithCapabilities(consumer.Capabilities{MutatesData: true}))
 }
 
-func createLogsHandler(ctx context.Context, ld plog.Logs) (plog.Logs, error) {
-	C.init_query_engine(C.CString("Log | filter event_id == 1")) // Initialize the query engine with a query
+func logProcessorHandler(ctx context.Context, ld plog.Logs) (plog.Logs, error) {
 
 	req := plogotlp.NewExportRequestFromLogs(ld)
 	fmt.Printf("Processing logs hello xyz2...%T\n", req)
