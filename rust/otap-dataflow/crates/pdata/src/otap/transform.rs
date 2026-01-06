@@ -657,12 +657,12 @@ pub fn transform_attributes_with_stats(
             let new_keys = Arc::new(keys_transform_result.new_keys);
 
             // Possibly remove any delta-encoding on the parent ID column. If there were any
-            // deletes, it could cause issues if the parent_ids are using the transport optimized
-            // quasi-delta encoding. This is because subsequent runs of key-value pairs may be
-            // joined deleted segments, meaning the delta encoding will change.
-            let any_rows_deleted = keys_transform_result.keep_ranges.is_some();
+            // transformations (rename or delete), it could cause issues if the parent_ids are using the transport optimized
+            // quasi-delta encoding.
+            // As a safe default, we always materialize the parent IDs if they exist.
+            // See https://github.com/open-telemetry/otel-arrow/issues/966
             let should_materialize_parent_ids =
-                any_rows_deleted && schema.column_with_name(consts::PARENT_ID).is_some();
+                schema.column_with_name(consts::PARENT_ID).is_some();
             let (attrs_record_batch, schema) = if should_materialize_parent_ids {
                 let rb = materialize_parent_id_for_attributes::<u16>(attrs_record_batch)?;
                 let schema = rb.schema();
@@ -749,12 +749,12 @@ pub fn transform_attributes_with_stats(
             }
 
             // Possibly remove any delta-encoding on the parent ID column. If there were any
-            // deletes, it could cause issues if the parent_ids are using the transport optimized
-            // quasi-delta encoding. This is because subsequent runs of key-value pairs may be
-            // joined deleted segments, meaning the delta encoding will change.
-            let any_rows_deleted = keep_ranges.is_some();
+            // transformations (rename or delete), it could cause issues if the parent_ids are using the transport optimized
+            // quasi-delta encoding.
+            // As a safe default, we always materialize the parent IDs if they exist.
+            // See https://github.com/open-telemetry/otel-arrow/issues/966
             let should_materialize_parent_ids =
-                any_rows_deleted && schema.column_with_name(consts::PARENT_ID).is_some();
+                schema.column_with_name(consts::PARENT_ID).is_some();
             let (attrs_record_batch, schema) = if should_materialize_parent_ids {
                 let rb = materialize_parent_id_for_attributes::<u16>(attrs_record_batch)?;
                 let schema = rb.schema();
@@ -3355,10 +3355,9 @@ mod test {
     }
 
     #[test]
-    fn test_skip_materialize_parent_ids_if_no_deletes() {
-        // this test is same as above, but there's an optimization that if there are no deletes
-        // then we don't materialize the quasi-delta parent IDs because there being no deletes
-        // means the sequence remains valid
+    fn test_materialize_parent_ids_if_renames_only() {
+        // We always materialize parent IDs even if there are no deletes (only renames),
+        // to avoid invalid quasi-delta encoding sequences.
         let schema = Arc::new(Schema::new(vec![
             // note: absence of encoding metadata means we assume it's quasi-delta encoded
             Field::new(consts::PARENT_ID, DataType::UInt16, false),
@@ -3385,10 +3384,19 @@ mod test {
         )
         .unwrap();
 
+        let expected_schema = Arc::new(Schema::new(vec![
+            // check that the "encoding:plain" metadata will be added to the field metadata
+            Field::new(consts::PARENT_ID, DataType::UInt16, false).with_plain_encoding(),
+            Field::new(consts::ATTRIBUTE_TYPE, DataType::UInt8, false),
+            Field::new(consts::ATTRIBUTE_KEY, DataType::Utf8, false),
+            Field::new(consts::ATTRIBUTE_STR, DataType::Utf8, true),
+        ]));
+
         let expected = RecordBatch::try_new(
-            schema.clone(),
+            expected_schema,
             vec![
-                Arc::new(UInt16Array::from_iter_values(vec![1, 1, 1, 1, 1, 1, 1, 1])),
+                // Materialized plain encoding: 1, 2, 1, 2, 1, 2, 1, 2
+                Arc::new(UInt16Array::from_iter_values(vec![1, 2, 1, 2, 1, 2, 1, 2])),
                 Arc::new(UInt8Array::from_iter_values(std::iter::repeat_n(
                     AttributeValueType::Str as u8,
                     8,
@@ -3419,7 +3427,7 @@ mod test {
     }
 
     #[test]
-    fn test_skip_materialize_parent_ids_if_no_deletes_dit_keys() {
+    fn test_materialize_parent_ids_if_renames_only_dict_keys() {
         // same test as above, but the keys are dict encoded
         let schema = Arc::new(Schema::new(vec![
             // note: absence of encoding metadata means we assume it's quasi-delta encoded
@@ -3452,10 +3460,23 @@ mod test {
         )
         .unwrap();
 
+        let expected_schema = Arc::new(Schema::new(vec![
+            // check that the "encoding:plain" metadata will be added to the field metadata
+            Field::new(consts::PARENT_ID, DataType::UInt16, false).with_plain_encoding(),
+            Field::new(consts::ATTRIBUTE_TYPE, DataType::UInt8, false),
+            Field::new(
+                consts::ATTRIBUTE_KEY,
+                DataType::Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Utf8)),
+                false,
+            ),
+            Field::new(consts::ATTRIBUTE_STR, DataType::Utf8, true),
+        ]));
+
         let expected = RecordBatch::try_new(
-            schema.clone(),
+            expected_schema,
             vec![
-                Arc::new(UInt16Array::from_iter_values(vec![1, 1, 1, 1, 1, 1, 1, 1])),
+                // Materialized plain encoding: 1, 2, 1, 2, 1, 2, 1, 2
+                Arc::new(UInt16Array::from_iter_values(vec![1, 2, 1, 2, 1, 2, 1, 2])),
                 Arc::new(UInt8Array::from_iter_values(std::iter::repeat_n(
                     AttributeValueType::Str as u8,
                     8,
