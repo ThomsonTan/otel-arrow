@@ -1,0 +1,29 @@
+version: otel_dataflow/v1
+groups:
+  default:
+    pipelines:
+      main:
+        policies:
+          channel_capacity:
+            control:
+              node: 100
+              pipeline: 100
+            pdata: 128
+
+        nodes:
+          receiver:
+            type: receiver:simple_http
+            config:
+              listening_addr: "127.0.0.1:9090"
+          debug:
+            type: processor:debug
+            config:
+              verbosity: basic
+          noop:
+            type: exporter:noop
+
+        connections:
+          - from: receiver
+            to: debug
+          - from: debug
+            to: noop
