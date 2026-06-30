@@ -39,6 +39,9 @@ otap-df-otap.workspace = true
 clap.workspace = true
 mimalloc = { workspace = true, optional = true }
 dhat = { workspace = true, optional = true }
+# Ctrl-C / SIGTERM handler used only by the `dhat-heap` profiling build so the
+# heap profile is flushed on shutdown (see the `dhat-heap` feature).
+ctrlc = { version = "3.4", features = ["termination"], optional = true }
 cfg-if.workspace = true
 
 [target.'cfg(not(windows))'.dependencies]
@@ -275,6 +278,7 @@ unchecked-index = []
 unchecked-arithmetic = []
 dhat-heap = [
     "dep:dhat",
+    "dep:ctrlc",
 ]
 
 # Dev/test tooling (traffic generator) and the otap integration tests

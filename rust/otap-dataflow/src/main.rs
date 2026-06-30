@@ -247,6 +247,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(all(not(tarpaulin_include), feature = "dhat-heap"))]
     {
         dhat_start();
+        // `run_forever` parks the main thread and the controller installs no
+        // signal handler, so a bare Ctrl+C would kill the process before
+        // `dhat_finish` runs, leaving no `dhat-heap.json`. Catch SIGINT/SIGTERM
+        // here, flush the heap profile, then exit.
+        ctrlc::set_handler(|| {
+            dhat_finish();
+            std::process::exit(0);
+        })
+        .expect("failed to install dhat-heap shutdown handler");
     }
 
     // Install the rustls crypto provider selected by the crypto-* feature flag.
