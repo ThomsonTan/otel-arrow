@@ -52,6 +52,7 @@ http = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 ryu = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true, features = ["rustls-no-provider"] }
+secrecy = { workspace = true, optional = true }
 sysinfo = { workspace = true, optional = true }
 urlencoding = { workspace = true, optional = true }
 
@@ -80,10 +81,18 @@ user_events-eventheader = [
 contrib-exporters = [
     "geneva-exporter",
     "azure-monitor-exporter",
+    "influxdb-exporter",
 ]
 geneva-exporter = [
     "dep:geneva-uploader",
     "dep:opentelemetry-proto",
+]
+influxdb-exporter = [
+    "dep:reqwest",
+    "dep:http",
+    "dep:itoa",
+    "dep:ryu",
+    "dep:secrecy",
 ]
 azure-monitor-exporter = [
     "dep:opentelemetry-proto",
